@@ -1,0 +1,8 @@
+{
+  "name": "Remix MoneyPilot ZW",
+  "description": "Smart personal finance and investment management app for Zimbabwe. Track EcoCash expenses, C-Trade investments, savings, financial goals, and project budgets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
