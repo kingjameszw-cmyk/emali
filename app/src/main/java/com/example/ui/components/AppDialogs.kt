@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,11 +23,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,11 +42,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.data.local.entities.AccountEntity
+import com.example.data.local.entities.BudgetCategoryEntity
 import com.example.data.local.entities.GoalEntity
 import com.example.data.local.entities.HoldingEntity
 import com.example.data.local.entities.ProjectEntity
 import com.example.data.local.entities.SavingsAccountEntity
+import com.example.data.local.entities.TodoTaskEntity
 import com.example.data.local.entities.TransactionEntity
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.text.style.TextAlign
 
 val standardCategories = listOf(
     "Groceries", "Transport & Fuel", "Airtime & Data", "Electricity",
@@ -914,6 +924,916 @@ fun EditStockCardDialog(
                 }
                 OutlinedButton(onClick = onDismiss) { Text("Cancel") }
             }
+        }
+    )
+}
+
+@Composable
+fun EditAccountDialog(
+    account: AccountEntity,
+    onDismiss: () -> Unit,
+    onSave: (AccountEntity) -> Unit
+) {
+    var name by remember { mutableStateOf(account.name) }
+    var balanceText by remember { mutableStateOf(account.balance.toString()) }
+    var type by remember { mutableStateOf(account.type) }
+    var accountNumber by remember { mutableStateOf(account.accountNumber) }
+    var currency by remember { mutableStateOf(account.currency) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Account / Wallet", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Account Name (e.g. EcoCash Personal, CBZ Nostro)") },
+                    modifier = Modifier.fillMaxWidth().testTag("edit_account_name_input")
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text("Account Balance ($currency)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(4.dp))
+                OutlinedTextField(
+                    value = balanceText,
+                    onValueChange = { balanceText = it },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().testTag("edit_account_balance_input")
+                )
+
+                // Quick stepper chips
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(-50, -10, +10, +50, +100).forEach { delta ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (delta > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    val current = balanceText.toDoubleOrNull() ?: 0.0
+                                    val updated = (current + delta).coerceAtLeast(0.0)
+                                    balanceText = String.format("%.2f", updated)
+                                }
+                        ) {
+                            Text(
+                                text = if (delta > 0) "+$delta" else "$delta",
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text("Account Type", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("ECOCASH", "BANK", "CASH", "INVESTMENT").forEach { t ->
+                        val isSel = type == t
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { type = t },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSel) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = t.take(4),
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text("Currency", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("USD", "ZWG").forEach { curr ->
+                        val isSel = currency == curr
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { currency = curr },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSel) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = curr,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                textAlign = TextAlign.Center,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = accountNumber,
+                    onValueChange = { accountNumber = it },
+                    label = { Text("Account / Mobile Number") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val bal = balanceText.toDoubleOrNull() ?: account.balance
+                    if (name.isNotBlank()) {
+                        onSave(
+                            account.copy(
+                                name = name.trim(),
+                                balance = bal,
+                                type = type,
+                                currency = currency,
+                                accountNumber = accountNumber.trim()
+                            )
+                        )
+                    }
+                },
+                modifier = Modifier.testTag("save_account_btn")
+            ) {
+                Text("Save Account")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun AddAccountDialog(
+    onDismiss: () -> Unit,
+    onSave: (AccountEntity) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var balanceText by remember { mutableStateOf("0.00") }
+    var type by remember { mutableStateOf("ECOCASH") }
+    var currency by remember { mutableStateOf("USD") }
+    var accountNumber by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New Account / Wallet", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Account Name (e.g. EcoCash USD, Innbucks, Cash)") },
+                    modifier = Modifier.fillMaxWidth().testTag("add_account_name_input")
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = balanceText,
+                    onValueChange = { balanceText = it },
+                    label = { Text("Starting Balance") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().testTag("add_account_balance_input")
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text("Account Type", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("ECOCASH", "BANK", "CASH", "INVESTMENT").forEach { t ->
+                        val isSel = type == t
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { type = t },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSel) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = t.take(4),
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text("Currency", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("USD", "ZWG").forEach { curr ->
+                        val isSel = currency == curr
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { currency = curr },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSel) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = curr,
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                textAlign = TextAlign.Center,
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = accountNumber,
+                    onValueChange = { accountNumber = it },
+                    label = { Text("Account / Mobile Number (Optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val bal = balanceText.toDoubleOrNull() ?: 0.0
+                    if (name.isNotBlank()) {
+                        onSave(
+                            AccountEntity(
+                                name = name.trim(),
+                                balance = bal,
+                                type = type,
+                                currency = currency,
+                                accountNumber = accountNumber.trim()
+                            )
+                        )
+                    }
+                },
+                modifier = Modifier.testTag("confirm_add_account_btn")
+            ) {
+                Text("Create Account")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun EditExchangeRateDialog(
+    currentRate: Double,
+    onDismiss: () -> Unit,
+    onSave: (Double) -> Unit
+) {
+    var rateText by remember { mutableStateOf(currentRate.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Exchange Rate & Net Worth", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Adjust the active USD to ZiG (ZWG) exchange rate. This immediately recalculates ZiG net worth and equivalent balances across the entire dashboard.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedTextField(
+                    value = rateText,
+                    onValueChange = { rateText = it },
+                    label = { Text("1 USD = X ZiG") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().testTag("exchange_rate_input")
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("Quick Preset Rates:", style = MaterialTheme.typography.labelSmall)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(25.0, 26.50, 27.50, 28.50).forEach { r ->
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { rateText = r.toString() },
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = "$r",
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val r = rateText.toDoubleOrNull()
+                    if (r != null && r > 0) {
+                        onSave(r)
+                    }
+                },
+                modifier = Modifier.testTag("confirm_rate_btn")
+            ) {
+                Text("Update Rate")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun QuickDepositDialog(
+    savingsAccounts: List<SavingsAccountEntity>,
+    onDismiss: () -> Unit,
+    onDeposit: (SavingsAccountEntity, Double) -> Unit
+) {
+    var selectedAccountId by remember { mutableStateOf(savingsAccounts.firstOrNull()?.id ?: 0L) }
+    var amountText by remember { mutableStateOf("50.00") }
+    var expanded by remember { mutableStateOf(false) }
+
+    val selectedAccount = savingsAccounts.find { it.id == selectedAccountId } ?: savingsAccounts.firstOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Savings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Deposit to Savings Reserve", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Depositing updates your savings fund balance and logs a linked transaction to your Ledger, updating the Dashboard metrics automatically.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Account Selector
+                if (savingsAccounts.isNotEmpty()) {
+                    Box {
+                        OutlinedTextField(
+                            value = selectedAccount?.name ?: "Select Fund",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Target Savings Account") },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = null,
+                                    modifier = Modifier.clickable { expanded = true }
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth().clickable { expanded = true }
+                        )
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            savingsAccounts.forEach { acc ->
+                                DropdownMenuItem(
+                                    text = { Text("${acc.name} (Current: $${String.format("%.2f", acc.currentBalance)})") },
+                                    onClick = {
+                                        selectedAccountId = acc.id
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    Text(
+                        "No savings accounts configured. Add one from the Savings tab.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Deposit Amount (USD)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().testTag("quick_deposit_amount_input")
+                )
+
+                // Quick Chips
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(20, 50, 100, 200).forEach { amt ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { amountText = amt.toString() }
+                        ) {
+                            Text(
+                                text = "+$$amt",
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amt = amountText.toDoubleOrNull() ?: 0.0
+                    if (selectedAccount != null && amt > 0) {
+                        onDeposit(selectedAccount, amt)
+                    }
+                },
+                enabled = selectedAccount != null && (amountText.toDoubleOrNull() ?: 0.0) > 0,
+                modifier = Modifier.testTag("confirm_quick_deposit_btn")
+            ) {
+                Text("Confirm Deposit")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun QuickBudgetEditDialog(
+    categories: List<BudgetCategoryEntity>,
+    onDismiss: () -> Unit,
+    onSaveCategory: (BudgetCategoryEntity) -> Unit
+) {
+    var showAddSection by remember { mutableStateOf(false) }
+    var newCategoryName by remember { mutableStateOf("") }
+    var newLimitText by remember { mutableStateOf("100.00") }
+    var categoryDropdownExpanded by remember { mutableStateOf(false) }
+
+    val presetNames = listOf(
+        "Groceries", "Transport & Fuel", "Electricity", "Food & Dining",
+        "Rent & Housing", "Airtime & Data", "School Fees", "Healthcare",
+        "Shopping", "Entertainment", "Business Expense", "Other"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set Monthly Spending Limits", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "Set monthly spending limits for each category to control expenses and track remaining funds on the dashboard progress bar.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Add Category Section
+                if (showAddSection) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("New Category Spending Limit", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Box {
+                                OutlinedTextField(
+                                    value = newCategoryName,
+                                    onValueChange = { newCategoryName = it },
+                                    label = { Text("Category") },
+                                    placeholder = { Text("Select or type category") },
+                                    trailingIcon = {
+                                        IconButton(onClick = { categoryDropdownExpanded = true }) {
+                                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                DropdownMenu(
+                                    expanded = categoryDropdownExpanded,
+                                    onDismissRequest = { categoryDropdownExpanded = false }
+                                ) {
+                                    presetNames.forEach { p ->
+                                        DropdownMenuItem(
+                                            text = { Text(p) },
+                                            onClick = {
+                                                newCategoryName = p
+                                                categoryDropdownExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedTextField(
+                                value = newLimitText,
+                                onValueChange = { newLimitText = it },
+                                label = { Text("Spending Limit (USD)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                TextButton(onClick = { showAddSection = false }) { Text("Cancel") }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Button(
+                                    onClick = {
+                                        val l = newLimitText.toDoubleOrNull() ?: 100.0
+                                        if (newCategoryName.isNotBlank() && l > 0) {
+                                            onSaveCategory(BudgetCategoryEntity(category = newCategoryName.trim(), monthlyLimit = l))
+                                            newCategoryName = ""
+                                            newLimitText = "100.00"
+                                            showAddSection = false
+                                        }
+                                    }
+                                ) {
+                                    Text("Add Limit")
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                } else {
+                    OutlinedButton(
+                        onClick = { showAddSection = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("+ Set New Category Limit")
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // Existing categories list
+                categories.forEach { cat ->
+                    var limitText by remember(cat.id) { mutableStateOf(cat.monthlyLimit.toString()) }
+                    var hasChanged by remember(cat.id) { mutableStateOf(false) }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(cat.category, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Current: $${String.format("%.2f", cat.monthlyLimit)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        OutlinedTextField(
+                            value = limitText,
+                            onValueChange = {
+                                limitText = it
+                                hasChanged = true
+                            },
+                            label = { Text("Limit") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.width(110.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Button(
+                            onClick = {
+                                val newLimit = limitText.toDoubleOrNull() ?: cat.monthlyLimit
+                                onSaveCategory(cat.copy(monthlyLimit = newLimit))
+                                hasChanged = false
+                            },
+                            enabled = hasChanged,
+                            modifier = Modifier.height(48.dp)
+                        ) {
+                            Text("Save", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text("Done") }
+        }
+    )
+}
+
+@Composable
+fun QuickAddTodoDialog(
+    onDismiss: () -> Unit,
+    onSave: (title: String, amount: Double, category: String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Utilities") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Financial To-Do / Bill", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Task / Bill Title (e.g. Pay ZESA Token)") },
+                    modifier = Modifier.fillMaxWidth().testTag("add_todo_title_input")
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Estimated Amount (USD, Optional)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().testTag("add_todo_amount_input")
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("Category:", style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Utilities", "School Fees", "Rent", "Insurance", "Invest").forEach { c ->
+                        val isSel = category == c
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { category = c },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSel) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = c.take(5),
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal)
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        val amt = amountText.toDoubleOrNull() ?: 0.0
+                        onSave(title.trim(), amt, category)
+                    }
+                },
+                modifier = Modifier.testTag("confirm_add_todo_btn")
+            ) {
+                Text("Add Task")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun EditTransactionDialog(
+    transaction: TransactionEntity,
+    accounts: List<AccountEntity>,
+    onDismiss: () -> Unit,
+    onSave: (TransactionEntity) -> Unit,
+    onDelete: (Long) -> Unit
+) {
+    var amountText by remember { mutableStateOf(transaction.amount.toString()) }
+    var feeText by remember { mutableStateOf(transaction.fee.toString()) }
+    var type by remember { mutableStateOf(transaction.type) }
+    var selectedCategory by remember { mutableStateOf(transaction.category) }
+    var recipient by remember { mutableStateOf(transaction.recipientOrSender) }
+    var reference by remember { mutableStateOf(transaction.reference) }
+    var description by remember { mutableStateOf(transaction.description) }
+    var selectedAccountId by remember { mutableStateOf(transaction.accountId) }
+    var categoryExpanded by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Transaction?") },
+            text = { Text("Are you sure you want to delete this record? Account and savings balances will be restored.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete(transaction.id)
+                        showDeleteConfirm = false
+                        onDismiss()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showDeleteConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Transaction", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Type selector
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("EXPENSE", "INCOME", "TRANSFER").forEach { t ->
+                        val isSelected = type == t
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { type = t },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                text = t,
+                                modifier = Modifier.padding(vertical = 6.dp),
+                                textAlign = TextAlign.Center,
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("Amount (USD)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth().testTag("edit_tx_amount_input")
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = feeText,
+                    onValueChange = { feeText = it },
+                    label = { Text("Transaction Fee (USD)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Category Dropdown
+                Box {
+                    OutlinedTextField(
+                        value = selectedCategory,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.ArrowDropDown,
+                                contentDescription = null,
+                                modifier = Modifier.clickable { categoryExpanded = true }
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().clickable { categoryExpanded = true }
+                    )
+                    DropdownMenu(
+                        expanded = categoryExpanded,
+                        onDismissRequest = { categoryExpanded = false }
+                    ) {
+                        standardCategories.forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat) },
+                                onClick = {
+                                    selectedCategory = cat
+                                    categoryExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = recipient,
+                    onValueChange = { recipient = it },
+                    label = { Text("Recipient / Sender / Merchant") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Notes / Description") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = { showDeleteConfirm = true },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Delete Transaction")
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val amt = amountText.toDoubleOrNull() ?: transaction.amount
+                    val fee = feeText.toDoubleOrNull() ?: transaction.fee
+                    onSave(
+                        transaction.copy(
+                            amount = amt,
+                            fee = fee,
+                            totalDeducted = amt + fee,
+                            type = type,
+                            category = selectedCategory,
+                            recipientOrSender = recipient.trim(),
+                            description = description.trim()
+                        )
+                    )
+                },
+                modifier = Modifier.testTag("save_tx_btn")
+            ) {
+                Text("Save Changes")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }

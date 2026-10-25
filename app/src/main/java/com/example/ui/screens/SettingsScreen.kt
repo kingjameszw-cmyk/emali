@@ -52,11 +52,18 @@ import com.example.ui.components.ProfileSwitcherDialog
 import com.example.ui.theme.FinanceExpenseRed
 import com.example.ui.theme.FinanceIncomeGreen
 
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import com.example.ui.ThemeMode
+
 @Composable
 fun SettingsScreen(
     userProfile: UserProfileEntity?,
     allProfiles: List<UserProfileEntity>,
     activeProfileId: Long,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onSetThemeMode: (ThemeMode) -> Unit = {},
     onSwitchProfile: (Long) -> Unit,
     onCreateProfile: (name: String, currency: String, usdToZigRate: Double) -> Unit,
     onResetProfileToZero: () -> Unit,

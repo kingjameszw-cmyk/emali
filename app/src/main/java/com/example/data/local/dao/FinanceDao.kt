@@ -54,6 +54,9 @@ interface FinanceDao {
     @Query("SELECT * FROM transactions WHERE reference = :reference LIMIT 1")
     suspend fun findTransactionByReference(reference: String): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
+    suspend fun getTransactionById(id: Long): TransactionEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
 

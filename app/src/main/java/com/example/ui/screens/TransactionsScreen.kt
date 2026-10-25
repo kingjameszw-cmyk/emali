@@ -63,11 +63,13 @@ fun TransactionsScreen(
     accounts: List<AccountEntity>,
     onAddTransaction: () -> Unit,
     onImportStatement: () -> Unit,
-    onDeleteTransaction: (Long) -> Unit
+    onDeleteTransaction: (Long) -> Unit,
+    onUpdateTransaction: ((TransactionEntity) -> Unit)? = null
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") }
     var txToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
+    var txToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
 
     val filterOptions = listOf("ALL", "ECOCASH", "EXPENSE", "INCOME", "TRANSFER", "BANK")
 
@@ -234,12 +236,30 @@ fun TransactionsScreen(
                     items(filteredList, key = { it.id }) { tx ->
                         TransactionDetailCard(
                             tx = tx,
+                            onClick = { txToEdit = tx },
                             onDelete = { txToDelete = tx }
                         )
                     }
                 }
             }
         }
+    }
+
+    // Edit transaction dialog
+    txToEdit?.let { tx ->
+        com.example.ui.components.EditTransactionDialog(
+            transaction = tx,
+            accounts = accounts,
+            onDismiss = { txToEdit = null },
+            onSave = { updated ->
+                onUpdateTransaction?.invoke(updated)
+                txToEdit = null
+            },
+            onDelete = { id ->
+                onDeleteTransaction(id)
+                txToEdit = null
+            }
+        )
     }
 
     // Delete confirmation dialog
@@ -268,12 +288,15 @@ fun TransactionsScreen(
 @Composable
 fun TransactionDetailCard(
     tx: TransactionEntity,
+    onClick: () -> Unit = {},
     onDelete: () -> Unit
 ) {
     Card(
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(

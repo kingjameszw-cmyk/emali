@@ -88,7 +88,35 @@ class FinanceRepository(private val dao: FinanceDao) {
         id
     }
 
+    suspend fun updateTransaction(transaction: TransactionEntity) = withContext(Dispatchers.IO) {
+        dao.updateTransaction(transaction)
+    }
+
     suspend fun deleteTransaction(id: Long) = withContext(Dispatchers.IO) {
+        val tx = dao.getTransactionById(id)
+        if (tx != null) {
+            val account = dao.getAccountById(tx.accountId)
+            if (account != null) {
+                val reverseDelta = when (tx.type) {
+                    "INCOME", "DIVIDEND" -> -tx.amount
+                    "EXPENSE", "SAVINGS_DEPOSIT", "INVESTMENT_BUY", "TRANSFER" -> (tx.amount + tx.fee)
+                    "SAVINGS_WITHDRAWAL", "INVESTMENT_SELL" -> -(tx.amount - tx.fee)
+                    else -> 0.0
+                }
+                dao.updateAccountBalance(account.id, (account.balance + reverseDelta).coerceAtLeast(0.0))
+            }
+            if (tx.savingsAccountId != null) {
+                val sa = dao.getSavingsAccountById(tx.savingsAccountId)
+                if (sa != null) {
+                    val reverseBal = if (tx.type == "SAVINGS_DEPOSIT") {
+                        (sa.currentBalance - tx.amount).coerceAtLeast(0.0)
+                    } else if (tx.type == "SAVINGS_WITHDRAWAL") {
+                        sa.currentBalance + tx.amount
+                    } else sa.currentBalance
+                    dao.updateSavingsAccount(sa.copy(currentBalance = reverseBal))
+                }
+            }
+        }
         dao.deleteTransaction(id)
     }
 

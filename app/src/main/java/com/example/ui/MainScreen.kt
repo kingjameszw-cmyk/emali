@@ -106,6 +106,8 @@ fun MainScreen(viewModel: MainViewModel) {
     val todoTasks by viewModel.todoTasks.collectAsStateWithLifecycle()
     val summary by viewModel.dashboardSummary.collectAsStateWithLifecycle()
     val selectedPeriod by viewModel.selectedTimePeriod.collectAsStateWithLifecycle()
+    val dashboardCardOrder by viewModel.dashboardCardOrder.collectAsStateWithLifecycle()
+    val isCustomizingDashboard by viewModel.isCustomizingDashboard.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddTxDialog by remember { mutableStateOf(false) }
@@ -294,13 +296,40 @@ fun MainScreen(viewModel: MainViewModel) {
                     projects = projects,
                     budgetCategories = budgetCategories,
                     todoTasks = todoTasks,
+                    savingsAccounts = savingsAccounts,
                     selectedPeriod = selectedPeriod,
                     usdToZigRate = userProfile?.usdToZigRate ?: 26.50,
+                    cardOrder = dashboardCardOrder,
+                    isCustomizingLayout = isCustomizingDashboard,
+                    onToggleCustomizeLayout = { viewModel.toggleCustomizeDashboard() },
+                    onMoveCardUp = { viewModel.moveDashboardCardUp(it) },
+                    onMoveCardDown = { viewModel.moveDashboardCardDown(it) },
+                    onResetLayout = { viewModel.resetDashboardLayout() },
                     onPeriodSelected = { viewModel.setTimePeriod(it) },
                     onNavigate = { viewModel.navigateTo(it) },
                     onQuickAddTransaction = { viewModel.navigateTo(AppScreen.EXPENSE_TRACKER) },
                     onQuickLogStock = { showLogStockDialog = true },
-                    onToggleTask = { viewModel.toggleTodoTask(it) }
+                    onToggleTask = { viewModel.toggleTodoTask(it) },
+                    onUpdateAccount = { viewModel.updateAccount(it) },
+                    onAddAccount = { viewModel.addAccount(it) },
+                    onDepositSavings = { acc, amt -> viewModel.depositToSavings(acc, amt) },
+                    onContributeGoal = { goal, amt -> viewModel.contributeToGoal(goal, amt) },
+                    onUpdateBudgetCategory = { viewModel.saveBudgetCategory(it) },
+                    onAddTodoTask = { title, amt, cat ->
+                        viewModel.saveTodoTask(
+                            com.example.data.local.entities.TodoTaskEntity(
+                                profileId = viewModel.activeProfileId.value,
+                                title = title,
+                                estimatedAmount = amt,
+                                category = cat
+                            )
+                        )
+                    },
+                    onUpdateTransaction = { viewModel.updateTransaction(it) },
+                    onDeleteTransaction = { viewModel.deleteTransaction(it) },
+                    onUpdateHolding = { viewModel.updateHolding(it) },
+                    onDeleteHolding = { viewModel.deleteHolding(it) },
+                    onUpdateExchangeRate = { viewModel.updateExchangeRate(it) }
                 )
 
                 AppScreen.EXPENSE_TRACKER -> ExpenseTrackerScreen(
@@ -340,7 +369,8 @@ fun MainScreen(viewModel: MainViewModel) {
                     accounts = accounts,
                     onAddTransaction = { showAddTxDialog = true },
                     onImportStatement = { showImportDialog = true },
-                    onDeleteTransaction = { viewModel.deleteTransaction(it) }
+                    onDeleteTransaction = { viewModel.deleteTransaction(it) },
+                    onUpdateTransaction = { viewModel.updateTransaction(it) }
                 )
 
                 AppScreen.INVESTMENTS -> InvestmentsScreen(
@@ -372,7 +402,9 @@ fun MainScreen(viewModel: MainViewModel) {
                     onDeleteSavingsAccount = { viewModel.deleteSavingsAccount(it) },
                     onSaveGoal = { viewModel.saveGoal(it) },
                     onUpdateGoal = { viewModel.saveGoal(it) },
-                    onDeleteGoal = { viewModel.deleteGoal(it) }
+                    onDeleteGoal = { viewModel.deleteGoal(it) },
+                    onDepositSavings = { acc, amt -> viewModel.depositToSavings(acc, amt) },
+                    onContributeGoal = { goal, amt -> viewModel.contributeToGoal(goal, amt) }
                 )
 
                 AppScreen.PROJECTS -> ProjectsScreen(

@@ -65,7 +65,9 @@ fun SavingsGoalsScreen(
     onDeleteSavingsAccount: (Long) -> Unit,
     onSaveGoal: (GoalEntity) -> Unit,
     onUpdateGoal: (GoalEntity) -> Unit,
-    onDeleteGoal: (Long) -> Unit
+    onDeleteGoal: (Long) -> Unit,
+    onDepositSavings: ((SavingsAccountEntity, Double) -> Unit)? = null,
+    onContributeGoal: ((GoalEntity, Double) -> Unit)? = null
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAddSavingsDialog by remember { mutableStateOf(false) }
@@ -279,9 +281,13 @@ fun SavingsGoalsScreen(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .clickable {
-                                                    onUpdateSavingsAccount(
-                                                        acc.copy(currentBalance = acc.currentBalance + amount)
-                                                    )
+                                                    if (onDepositSavings != null) {
+                                                        onDepositSavings(acc, amount)
+                                                    } else {
+                                                        onUpdateSavingsAccount(
+                                                            acc.copy(currentBalance = acc.currentBalance + amount)
+                                                        )
+                                                    }
                                                 },
                                             shape = RoundedCornerShape(8.dp),
                                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
@@ -474,9 +480,13 @@ fun SavingsGoalsScreen(
                                             modifier = Modifier
                                                 .weight(1f)
                                                 .clickable {
-                                                    onUpdateGoal(
-                                                        goal.copy(currentAmount = goal.currentAmount + amount)
-                                                    )
+                                                    if (onContributeGoal != null) {
+                                                        onContributeGoal(goal, amount)
+                                                    } else {
+                                                        onUpdateGoal(
+                                                            goal.copy(currentAmount = goal.currentAmount + amount)
+                                                        )
+                                                    }
                                                 },
                                             shape = RoundedCornerShape(8.dp),
                                             color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)

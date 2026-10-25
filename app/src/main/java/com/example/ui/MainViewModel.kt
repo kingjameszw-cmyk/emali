@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.AppDatabase
@@ -30,6 +31,26 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+enum class ThemeMode(val label: String) {
+    SYSTEM("System Default"),
+    LIGHT("Light Mode"),
+    DARK("Dark Mode")
+}
+
+enum class DashboardCardId(val title: String) {
+    HERO_NET_WORTH("Net Worth Hero"),
+    ACCOUNTS_CAROUSEL("Accounts & Wallets"),
+    QUICK_ACTIONS("Quick Actions Bar"),
+    TIME_FILTER("Time Filter & Rates"),
+    MONTHLY_CASHFLOW("Monthly Cashflow & Stats"),
+    SAVINGS_RATE("Savings Rate & Goals"),
+    BUDGET_HEALTH("Monthly Budget Health"),
+    TODO_CHECKLIST("Bills & Tasks Checklist"),
+    INVESTMENTS("C-Trade Stocks"),
+    PROJECTS_GOALS("Active Projects & Goals"),
+    RECENT_TRANSACTIONS("Recent Ledger Transactions")
+}
+
 enum class AppScreen {
     DASHBOARD,
     EXPENSE_TRACKER,
@@ -41,6 +62,7 @@ enum class AppScreen {
     BUDGET_PLANNER,
     TODO_LIST,
     REPORTS,
+    MONTHLY_SUMMARY,
     ASSISTANT,
     SECURITY,
     SETTINGS
@@ -71,6 +93,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Status / Toast alert
     private val _userFeedbackMessage = MutableStateFlow<String?>(null)
     val userFeedbackMessage: StateFlow<String?> = _userFeedbackMessage.asStateFlow()
+
+    // Dark Mode / Theme Mode state
+    private val prefs = application.getSharedPreferences("moneypilot_prefs", Context.MODE_PRIVATE)
+    private val _themeMode = MutableStateFlow(
+        try {
+            ThemeMode.valueOf(prefs.getString("theme_mode", ThemeMode.SYSTEM.name) ?: ThemeMode.SYSTEM.name)
+        } catch (e: Exception) {
+            ThemeMode.SYSTEM
+        }
+    )
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+        prefs.edit().putString("theme_mode", mode.name).apply()
+        _userFeedbackMessage.value = "Display mode set to ${mode.label}"
+    }
+
+    fun toggleDarkMode() {
+        val next = when (_themeMode.value) {
+            ThemeMode.DARK -> ThemeMode.LIGHT
+            ThemeMode.LIGHT -> ThemeMode.DARK
+            ThemeMode.SYSTEM -> ThemeMode.DARK
+        }
+        setThemeMode(next)
+    }
 
     // Multi-profile state
     private val _activeProfileId = MutableStateFlow(1L)
@@ -151,28 +199,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .flatMapLatest { id -> repository.getTodoTasks(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Financial Dashboard Summary
-    val dashboardSummary: StateFlow<DashboardFinancialSummary> = combine(
-        accounts,
-        transactions,
-        holdings,
-        savingsAccounts,
-        selectedTimePeriod
-    ) { accs, txs, holds, savings, period ->
-        val window = when (period) {
+    // Financial Dashboard Summary (Combined reactively across accounts, ledger transactions, savings, goals, projects, budget)
+    private data class DashPart1(
+        val accs: List<AccountEntity>,
+        val txs: List<TransactionEntity>,
+        val holds: List<HoldingEntity>,
+        val savings: List<SavingsAccountEntity>
+    )
+
+    private data class DashPart2(
+        val gls: List<GoalEntity>,
+        val prjs: List<ProjectEntity>,
+        val bItems: List<ProjectBudgetItemEntity>,
+        val period: String
+    )
+
+    private val part1Flow = combine(accounts, transactions, holdings, savingsAccounts) { a, b, c, d ->
+        DashPart1(a, b, c, d)
+    }
+
+    private val part2Flow = combine(goals, projects, projectBudgetItems, selectedTimePeriod) { a, b, c, d ->
+        DashPart2(a, b, c, d)
+    }
+
+    val dashboardSummary: StateFlow<DashboardFinancialSummary> = combine(part1Flow, part2Flow) { p1, p2 ->
+        val window = when (p2.period) {
             "This Week" -> FinancialMath.getStartOfWeekMillis()
             "This Year" -> FinancialMath.getStartOfYearMillis()
             "All Time" -> 0L
             else -> FinancialMath.getStartOfMonthMillis()
         }
         FinancialMath.computeSummary(
-            accounts = accs,
-            transactions = txs,
-            holdings = holds,
-            savingsAccounts = savings,
-            goals = goals.value,
-            projects = projects.value,
-            projectBudgetItems = projectBudgetItems.value,
+            accounts = p1.accs,
+            transactions = p1.txs,
+            holdings = p1.holds,
+            savingsAccounts = p1.savings,
+            goals = p2.gls,
+            projects = p2.prjs,
+            projectBudgetItems = p2.bItems,
             timeWindowMillis = window
         )
     }.stateIn(
@@ -180,6 +244,74 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         SharingStarted.WhileSubscribed(5000),
         DashboardFinancialSummary(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0.0, 0.0)
     )
+
+    // Movable & Reorderable Dashboard Card Order
+    private val _dashboardCardOrder = MutableStateFlow(
+        listOf(
+            DashboardCardId.HERO_NET_WORTH,
+            DashboardCardId.ACCOUNTS_CAROUSEL,
+            DashboardCardId.QUICK_ACTIONS,
+            DashboardCardId.TIME_FILTER,
+            DashboardCardId.MONTHLY_CASHFLOW,
+            DashboardCardId.SAVINGS_RATE,
+            DashboardCardId.BUDGET_HEALTH,
+            DashboardCardId.TODO_CHECKLIST,
+            DashboardCardId.INVESTMENTS,
+            DashboardCardId.PROJECTS_GOALS,
+            DashboardCardId.RECENT_TRANSACTIONS
+        )
+    )
+    val dashboardCardOrder: StateFlow<List<DashboardCardId>> = _dashboardCardOrder.asStateFlow()
+
+    private val _isCustomizingDashboard = MutableStateFlow(false)
+    val isCustomizingDashboard: StateFlow<Boolean> = _isCustomizingDashboard.asStateFlow()
+
+    fun toggleCustomizeDashboard() {
+        _isCustomizingDashboard.value = !_isCustomizingDashboard.value
+    }
+
+    fun setCustomizingDashboard(value: Boolean) {
+        _isCustomizingDashboard.value = value
+    }
+
+    fun moveDashboardCardUp(cardId: DashboardCardId) {
+        val list = _dashboardCardOrder.value.toMutableList()
+        val index = list.indexOf(cardId)
+        if (index > 0) {
+            val item = list.removeAt(index)
+            list.add(index - 1, item)
+            _dashboardCardOrder.value = list
+            _userFeedbackMessage.value = "Moved ${cardId.title} up"
+        }
+    }
+
+    fun moveDashboardCardDown(cardId: DashboardCardId) {
+        val list = _dashboardCardOrder.value.toMutableList()
+        val index = list.indexOf(cardId)
+        if (index in 0 until list.size - 1) {
+            val item = list.removeAt(index)
+            list.add(index + 1, item)
+            _dashboardCardOrder.value = list
+            _userFeedbackMessage.value = "Moved ${cardId.title} down"
+        }
+    }
+
+    fun resetDashboardLayout() {
+        _dashboardCardOrder.value = listOf(
+            DashboardCardId.HERO_NET_WORTH,
+            DashboardCardId.ACCOUNTS_CAROUSEL,
+            DashboardCardId.QUICK_ACTIONS,
+            DashboardCardId.TIME_FILTER,
+            DashboardCardId.MONTHLY_CASHFLOW,
+            DashboardCardId.SAVINGS_RATE,
+            DashboardCardId.BUDGET_HEALTH,
+            DashboardCardId.TODO_CHECKLIST,
+            DashboardCardId.INVESTMENTS,
+            DashboardCardId.PROJECTS_GOALS,
+            DashboardCardId.RECENT_TRANSACTIONS
+        )
+        _userFeedbackMessage.value = "Reset dashboard layout to default"
+    }
 
     init {
         viewModelScope.launch {
@@ -218,8 +350,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addTransaction(transaction: TransactionEntity) {
         viewModelScope.launch {
-            repository.addTransaction(transaction)
+            repository.addTransaction(transaction.copy(profileId = _activeProfileId.value))
             _userFeedbackMessage.value = "Recorded: ${transaction.category} ($${transaction.amount})"
+        }
+    }
+
+    fun updateTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch {
+            repository.updateTransaction(transaction.copy(profileId = _activeProfileId.value))
+            _userFeedbackMessage.value = "Updated transaction: ${transaction.category}"
         }
     }
 
@@ -227,6 +366,77 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.deleteTransaction(id)
             _userFeedbackMessage.value = "Transaction deleted"
+        }
+    }
+
+    fun updateAccount(account: AccountEntity) {
+        viewModelScope.launch {
+            db.financeDao().updateAccount(account)
+            _userFeedbackMessage.value = "Updated ${account.name} balance to $${String.format("%.2f", account.balance)}"
+        }
+    }
+
+    fun addAccount(account: AccountEntity) {
+        viewModelScope.launch {
+            db.financeDao().insertAccount(account.copy(profileId = _activeProfileId.value))
+            _userFeedbackMessage.value = "Added account ${account.name}"
+        }
+    }
+
+    fun depositToSavings(account: SavingsAccountEntity, amount: Double) {
+        viewModelScope.launch {
+            val updated = account.copy(
+                currentBalance = account.currentBalance + amount,
+                profileId = _activeProfileId.value
+            )
+            repository.saveSavingsAccount(updated)
+
+            // Log corresponding savings transaction in ledger
+            val tx = TransactionEntity(
+                profileId = _activeProfileId.value,
+                accountId = 1,
+                type = "SAVINGS_DEPOSIT",
+                amount = amount,
+                fee = 0.0,
+                totalDeducted = amount,
+                currency = "USD",
+                category = "Savings Deposit",
+                recipientOrSender = account.name,
+                reference = "SAV-" + System.currentTimeMillis().toString().takeLast(6),
+                description = "Deposit into ${account.name}",
+                dateMillis = System.currentTimeMillis(),
+                savingsAccountId = account.id
+            )
+            repository.addTransaction(tx)
+            _userFeedbackMessage.value = "Deposited $${String.format("%.2f", amount)} into ${account.name}"
+        }
+    }
+
+    fun contributeToGoal(goal: GoalEntity, amount: Double) {
+        viewModelScope.launch {
+            val updated = goal.copy(
+                currentAmount = goal.currentAmount + amount,
+                profileId = _activeProfileId.value
+            )
+            repository.saveGoal(updated)
+
+            // Log corresponding goal transaction in ledger
+            val tx = TransactionEntity(
+                profileId = _activeProfileId.value,
+                accountId = 1,
+                type = "SAVINGS_DEPOSIT",
+                amount = amount,
+                fee = 0.0,
+                totalDeducted = amount,
+                currency = "USD",
+                category = "Goal: ${goal.name}",
+                recipientOrSender = goal.name,
+                reference = "GOAL-" + System.currentTimeMillis().toString().takeLast(6),
+                description = "Contribution to ${goal.name}",
+                dateMillis = System.currentTimeMillis()
+            )
+            repository.addTransaction(tx)
+            _userFeedbackMessage.value = "Contributed $${String.format("%.2f", amount)} to ${goal.name}"
         }
     }
 

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.FinanceExpenseRed
 import com.example.ui.theme.FinanceIncomeGreen
+import com.example.ui.theme.ZiGAmber
 
 @Composable
 fun StatCard(
@@ -145,6 +146,84 @@ fun ProgressBarWithTarget(
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(4.dp))
                     .background(color)
+            )
+        }
+    }
+}
+
+@Composable
+fun RemainingFundsProgressBar(
+    remainingAmount: Double,
+    totalBudget: Double,
+    spentAmount: Double,
+    modifier: Modifier = Modifier,
+    barHeight: androidx.compose.ui.unit.Dp = 10.dp
+) {
+    val isOverBudget = spentAmount > totalBudget && totalBudget > 0
+    val overBudgetAmt = if (isOverBudget) spentAmount - totalBudget else 0.0
+    val remainingRatio = if (totalBudget > 0) ((totalBudget - spentAmount) / totalBudget).toFloat().coerceIn(0f, 1f) else 0f
+    val remainingPercent = if (totalBudget > 0) ((totalBudget - spentAmount) / totalBudget * 100.0).coerceIn(0.0, 100.0) else 0.0
+
+    val barColor = when {
+        isOverBudget -> FinanceExpenseRed
+        remainingRatio <= 0.20f -> ZiGAmber
+        else -> FinanceIncomeGreen
+    }
+
+    val animatedProgress by animateFloatAsState(targetValue = remainingRatio, label = "remaining_progress")
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isOverBudget) "Over Budget: -$${String.format("%.2f", overBudgetAmt)}"
+                else "Remaining: $${String.format("%.2f", remainingAmount)}",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = barColor
+            )
+            Text(
+                text = if (isOverBudget) "0% Left" else "${String.format("%.1f", remainingPercent)}% Left",
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(barHeight)
+                .clip(RoundedCornerShape(barHeight / 2))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(if (isOverBudget) 1f else animatedProgress)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(barHeight / 2))
+                    .background(barColor)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Spent: $${String.format("%.2f", spentAmount)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = "Limit: $${String.format("%.2f", totalBudget)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
