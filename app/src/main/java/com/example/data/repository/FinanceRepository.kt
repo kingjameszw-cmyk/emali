@@ -37,6 +37,7 @@ class FinanceRepository(private val dao: FinanceDao) {
 
     fun getAccounts(profileId: Long): Flow<List<AccountEntity>> = dao.getAccountsByProfile(profileId)
     fun getTransactions(profileId: Long): Flow<List<TransactionEntity>> = dao.getTransactionsByProfile(profileId)
+    fun getExpenses(profileId: Long): Flow<List<TransactionEntity>> = dao.getExpensesByProfile(profileId)
     fun getHoldings(profileId: Long): Flow<List<HoldingEntity>> = dao.getHoldingsByProfile(profileId)
     fun getInvestmentTransactions(profileId: Long): Flow<List<InvestmentTransactionEntity>> = dao.getInvestmentTransactionsByProfile(profileId)
     fun getInvestmentTargets(profileId: Long): Flow<List<InvestmentTargetEntity>> = dao.getInvestmentTargetsByProfile(profileId)

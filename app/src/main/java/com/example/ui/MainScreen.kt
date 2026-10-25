@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.TrendingDown
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -68,11 +69,13 @@ import com.example.ui.components.ProfileSwitcherDialog
 import com.example.ui.screens.AssistantScreen
 import com.example.ui.screens.BudgetPlannerScreen
 import com.example.ui.screens.DashboardScreen
+import com.example.ui.screens.ExpenseTrackerScreen
 import com.example.ui.screens.InvestmentsScreen
 import com.example.ui.screens.ProjectsScreen
 import com.example.ui.screens.ReportsScreen
 import com.example.ui.screens.SavingsGoalsScreen
 import com.example.ui.screens.SecurityLockScreen
+import com.example.ui.screens.SavedExpensesScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TodoListScreen
 import com.example.ui.screens.TransactionsScreen
@@ -195,6 +198,16 @@ fun MainScreen(viewModel: MainViewModel) {
                         )
                     }
                     IconButton(
+                        onClick = { viewModel.navigateTo(AppScreen.EXPENSE_TRACKER) },
+                        modifier = Modifier.testTag("top_bar_expense_tracker_btn")
+                    ) {
+                        Icon(
+                            Icons.Default.TrendingDown,
+                            contentDescription = "Expense Tracker",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    IconButton(
                         onClick = { viewModel.navigateTo(AppScreen.BUDGET_PLANNER) },
                         modifier = Modifier.testTag("top_bar_budget_btn")
                     ) {
@@ -285,9 +298,26 @@ fun MainScreen(viewModel: MainViewModel) {
                     usdToZigRate = userProfile?.usdToZigRate ?: 26.50,
                     onPeriodSelected = { viewModel.setTimePeriod(it) },
                     onNavigate = { viewModel.navigateTo(it) },
-                    onQuickAddTransaction = { showAddTxDialog = true },
-                    onQuickBuyStock = { showBuyStockDialog = true },
+                    onQuickAddTransaction = { viewModel.navigateTo(AppScreen.EXPENSE_TRACKER) },
+                    onQuickLogStock = { showLogStockDialog = true },
                     onToggleTask = { viewModel.toggleTodoTask(it) }
+                )
+
+                AppScreen.EXPENSE_TRACKER -> ExpenseTrackerScreen(
+                    accounts = accounts,
+                    expenses = transactions,
+                    budgetCategories = budgetCategories,
+                    initialExchangeRate = userProfile?.usdToZigRate ?: 26.50,
+                    onSaveExpense = { viewModel.addTransaction(it) },
+                    onDeleteExpense = { viewModel.deleteTransaction(it) },
+                    onNavigateBack = { viewModel.navigateTo(AppScreen.DASHBOARD) },
+                    onNavigateToSavedExpenses = { viewModel.navigateTo(AppScreen.SAVED_EXPENSES) }
+                )
+
+                AppScreen.SAVED_EXPENSES -> SavedExpensesScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { viewModel.navigateTo(AppScreen.DASHBOARD) },
+                    onAddNewExpense = { viewModel.navigateTo(AppScreen.EXPENSE_TRACKER) }
                 )
 
                 AppScreen.BUDGET_PLANNER -> BudgetPlannerScreen(
@@ -317,11 +347,11 @@ fun MainScreen(viewModel: MainViewModel) {
                     holdings = holdings,
                     investmentTransactions = investmentTransactions,
                     investmentTargets = investmentTargets,
-                    onBuyStock = { ticker, company, exchange, shares, price, fees ->
-                        viewModel.buyStock(ticker, company, exchange, shares, price, fees)
+                    onLogStockBought = { ticker, company, exchange, shares, price, notes ->
+                        viewModel.logStockBought(ticker, company, exchange, shares, price, notes)
                     },
-                    onSellStock = { ticker, shares, price, fees ->
-                        viewModel.sellStock(ticker, shares, price, fees)
+                    onPullLatestPrices = {
+                        viewModel.pullLatestPrices()
                     },
                     onUpdatePrice = { ticker, newPrice ->
                         viewModel.updatePrice(ticker, newPrice)
@@ -423,15 +453,14 @@ fun MainScreen(viewModel: MainViewModel) {
         )
     }
 
-    // Quick Buy Stock Dialog
-    if (showBuyStockDialog) {
-        BuySellStockDialog(
-            holding = holdings.firstOrNull(),
-            isBuy = true,
-            onDismiss = { showBuyStockDialog = false },
-            onConfirm = { ticker, company, exchange, shares, price, fees ->
-                viewModel.buyStock(ticker, company, exchange, shares, price, fees)
-                showBuyStockDialog = false
+    // Quick Log Stock Dialog
+    if (showLogStockDialog) {
+        LogStockBoughtDialog(
+            initialHolding = holdings.firstOrNull(),
+            onDismiss = { showLogStockDialog = false },
+            onConfirm = { ticker, company, exchange, shares, price, notes ->
+                viewModel.logStockBought(ticker, company, exchange, shares, price, notes)
+                showLogStockDialog = false
             }
         )
     }

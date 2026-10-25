@@ -100,5 +100,34 @@ class ExampleRobolectricTest {
     org.junit.Assert.assertEquals(500.0, updated?.totalCostBasis ?: 0.0, 0.001)
     org.junit.Assert.assertEquals(250.0, updated?.unrealizedGain ?: 0.0, 0.001)
   }
+
+  @Test
+  fun `test expense tracking creation and calculation`() = kotlinx.coroutines.runBlocking {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val db = com.example.data.local.AppDatabase.getInstance(context)
+    val txDao = db.transactionDao()
+
+    val dateMillis = System.currentTimeMillis()
+    val trackedExpense = com.example.data.local.entities.TransactionEntity(
+      accountId = 1,
+      type = "EXPENSE",
+      amount = 85.0,
+      fee = 1.70,
+      category = "Electricity & ZETDC",
+      recipientOrSender = "ZETDC Prepaid",
+      reference = "EXP-ZETDC-99",
+      description = "Prepaid Power Token",
+      dateMillis = dateMillis
+    )
+
+    val id = txDao.insertTransaction(trackedExpense)
+    val fetched = txDao.getTransactionById(id)
+    org.junit.Assert.assertNotNull(fetched)
+    org.junit.Assert.assertEquals(85.0, fetched?.amount ?: 0.0, 0.001)
+    org.junit.Assert.assertEquals(1.70, fetched?.fee ?: 0.0, 0.001)
+    org.junit.Assert.assertEquals("Electricity & ZETDC", fetched?.category)
+    org.junit.Assert.assertEquals("ZETDC Prepaid", fetched?.recipientOrSender)
+    org.junit.Assert.assertEquals(dateMillis, fetched?.dateMillis ?: 0L)
+  }
 }
 

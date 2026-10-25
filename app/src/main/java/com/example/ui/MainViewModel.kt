@@ -32,6 +32,8 @@ import kotlinx.coroutines.launch
 
 enum class AppScreen {
     DASHBOARD,
+    EXPENSE_TRACKER,
+    SAVED_EXPENSES,
     TRANSACTIONS,
     INVESTMENTS,
     SAVINGS_GOALS,
@@ -92,6 +94,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     @OptIn(ExperimentalCoroutinesApi::class)
     val transactions: StateFlow<List<TransactionEntity>> = _activeProfileId
         .flatMapLatest { id -> repository.getTransactions(id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val savedExpenses: StateFlow<List<TransactionEntity>> = _activeProfileId
+        .flatMapLatest { id -> repository.getExpenses(id) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     @OptIn(ExperimentalCoroutinesApi::class)

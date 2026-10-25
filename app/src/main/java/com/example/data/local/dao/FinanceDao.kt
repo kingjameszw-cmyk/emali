@@ -42,6 +42,9 @@ interface FinanceDao {
     @Query("SELECT * FROM transactions ORDER BY dateMillis DESC")
     fun getAllTransactions(): Flow<List<TransactionEntity>>
 
+    @Query("SELECT * FROM transactions WHERE type = 'EXPENSE' ORDER BY dateMillis DESC")
+    fun getAllExpenses(): Flow<List<TransactionEntity>>
+
     @Query("SELECT * FROM transactions WHERE accountId = :accountId ORDER BY dateMillis DESC")
     fun getTransactionsByAccount(accountId: Long): Flow<List<TransactionEntity>>
 
@@ -226,6 +229,9 @@ interface FinanceDao {
 
     @Query("SELECT * FROM transactions WHERE profileId = :profileId ORDER BY dateMillis DESC")
     fun getTransactionsByProfile(profileId: Long): Flow<List<TransactionEntity>>
+
+    @Query("SELECT * FROM transactions WHERE profileId = :profileId AND type = 'EXPENSE' ORDER BY dateMillis DESC")
+    fun getExpensesByProfile(profileId: Long): Flow<List<TransactionEntity>>
 
     @Query("SELECT * FROM holdings WHERE profileId = :profileId ORDER BY shares * currentPrice DESC")
     fun getHoldingsByProfile(profileId: Long): Flow<List<HoldingEntity>>
