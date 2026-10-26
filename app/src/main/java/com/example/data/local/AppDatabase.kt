@@ -40,7 +40,7 @@ import com.example.data.local.entities.UserProfileEntity
         UserProfileEntity::class,
         TodoTaskEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(AppTypeConverters::class)

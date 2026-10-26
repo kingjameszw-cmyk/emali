@@ -1,5 +1,17 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsOff
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -117,14 +129,36 @@ fun getCategoryIcon(category: String): ImageVector {
     }
 }
 
+
 @Composable
 fun BudgetPlannerScreen(
     summary: DashboardFinancialSummary,
     budgetCategories: List<BudgetCategoryEntity>,
     transactions: List<TransactionEntity>,
     onSaveCategory: (BudgetCategoryEntity) -> Unit,
-    onDeleteCategory: (Long) -> Unit
+    onDeleteCategory: (Long) -> Unit,
+    onTriggerTestAlert: (String) -> Unit = {}
 ) {
+    val context = LocalContext.current
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+    }
+
     var showAddDialog by remember { mutableStateOf(false) }
     var editingCategory by remember { mutableStateOf<BudgetCategoryEntity?>(null) }
     var categoryToDelete by remember { mutableStateOf<BudgetCategoryEntity?>(null) }
@@ -324,6 +358,120 @@ fun BudgetPlannerScreen(
                 }
             }
 
+            // Smart Budget Alert Engine & Quick Test Card
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    modifier = Modifier.fillMaxWidth().testTag("budget_alert_engine_card")
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(38.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        Icons.Default.NotificationsActive,
+                                        contentDescription = "Budget Alert Notification Engine",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Column {
+                                    Text(
+                                        "Spending Alert System",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        "Automatic alerts when category thresholds near",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (hasNotificationPermission) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+                            ) {
+                                Text(
+                                    text = if (hasNotificationPermission) "ALERTS ACTIVE" else "PERMISSION NEEDED",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                    color = if (hasNotificationPermission) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = "Automatic local alerts trigger as soon as an expense pushes a category spend to its configured threshold (e.g. 80% caution or 100% ceiling). Tap below to test immediate notification delivery.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                Button(
+                                    onClick = {
+                                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    },
+                                    modifier = Modifier.weight(1f).testTag("enable_notifications_btn"),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Allow Alerts", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                    val testCategory = budgetCategories.firstOrNull()?.category ?: "Groceries"
+                                    onTriggerTestAlert(testCategory)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .testTag("test_budget_notification_btn"),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Icon(Icons.Default.NotificationsActive, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Test Notification Alert", style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+            }
+
             // Quick Category Limit Management Banner
             item {
                 Row(
@@ -483,10 +631,45 @@ fun BudgetPlannerScreen(
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            Icon(
+                                                if (cat.alertEnabled) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(12.dp),
+                                                tint = if (cat.alertEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            )
+                                            Text(
+                                                text = if (cat.alertEnabled) "Alert at ${cat.alertThresholdPercent.toInt()}%" else "Alerts Off",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (cat.alertEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                            )
+                                        }
                                     }
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (cat.alertEnabled) {
+                                        IconButton(
+                                            onClick = {
+                                                if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                }
+                                                onTriggerTestAlert(cat.category)
+                                            },
+                                            modifier = Modifier.size(32.dp).testTag("test_alert_${cat.category}")
+                                        ) {
+                                            Icon(
+                                                Icons.Default.NotificationsActive,
+                                                contentDescription = "Test Alert for ${cat.category}",
+                                                tint = MaterialTheme.colorScheme.secondary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
                                     IconButton(
                                         onClick = { editingCategory = cat },
                                         modifier = Modifier.size(32.dp)
@@ -610,6 +793,8 @@ fun BudgetPlannerScreen(
     if (showAddDialog || editingCategory != null) {
         var catName by remember { mutableStateOf(editingCategory?.category ?: "") }
         var limitText by remember { mutableStateOf(editingCategory?.monthlyLimit?.toString() ?: "100.00") }
+        var thresholdPercent by remember { mutableStateOf(editingCategory?.alertThresholdPercent ?: 85.0) }
+        var alertEnabled by remember { mutableStateOf(editingCategory?.alertEnabled ?: true) }
         var categoryDropdownExpanded by remember { mutableStateOf(false) }
 
         AlertDialog(
@@ -626,7 +811,7 @@ fun BudgetPlannerScreen(
             text = {
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Set a monthly spending limit for this category. The dashboard progress bar will track your remaining funds in realtime.",
+                        text = "Set a monthly spending limit for this category. The system monitors spending and fires alerts when your threshold is reached.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -702,6 +887,75 @@ fun BudgetPlannerScreen(
                             }
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Alert Settings
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Spending Alerts",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                            )
+                            Text(
+                                "Notify when spending reaches threshold",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = alertEnabled,
+                            onCheckedChange = { alertEnabled = it },
+                            modifier = Modifier.testTag("budget_alert_switch")
+                        )
+                    }
+
+                    if (alertEnabled) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Alert Trigger Threshold:",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Text(
+                                text = "${thresholdPercent.toInt()}% of budget",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(75.0, 80.0, 85.0, 90.0, 100.0).forEach { pct ->
+                                val isSelected = thresholdPercent == pct
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { thresholdPercent = pct }
+                                ) {
+                                    Text(
+                                        text = "${pct.toInt()}%",
+                                        modifier = Modifier.padding(vertical = 4.dp),
+                                        textAlign = TextAlign.Center,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal),
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -713,7 +967,9 @@ fun BudgetPlannerScreen(
                                 BudgetCategoryEntity(
                                     id = editingCategory?.id ?: 0L,
                                     category = catName.trim(),
-                                    monthlyLimit = limit
+                                    monthlyLimit = limit,
+                                    alertThresholdPercent = thresholdPercent,
+                                    alertEnabled = alertEnabled
                                 )
                             )
                             showAddDialog = false

@@ -10,5 +10,7 @@ data class BudgetCategoryEntity(
     val profileId: Long = 1,
     val category: String,
     val monthlyLimit: Double,
-    val currency: String = "USD"
+    val currency: String = "USD",
+    val alertThresholdPercent: Double = 100.0,
+    val alertEnabled: Boolean = true
 )

@@ -789,17 +789,3 @@ fun MonthlySummaryScreen(
         }
     }
 }
-
-private fun getCategoryIcon(category: String): ImageVector {
-    return when (category.lowercase()) {
-        "groceries", "supermarket", "food", "provisions" -> Icons.Default.ShoppingCart
-        "transport & fuel", "fuel", "diesel", "petrol", "transport", "commute", "car" -> Icons.Default.DirectionsCar
-        "food & dining", "dining", "restaurant", "lunch", "dinner" -> Icons.Default.Restaurant
-        "electricity", "zesa", "tokens", "power" -> Icons.Default.Bolt
-        "airtime & data", "airtime", "data", "internet", "econet" -> Icons.Default.PhoneAndroid
-        "rent & housing", "rent", "housing", "rates", "accommodation" -> Icons.Default.Home
-        "school fees", "tuition", "education", "books" -> Icons.Default.School
-        "healthcare", "pharmacy", "medical", "doctor" -> Icons.Default.LocalHospital
-        else -> Icons.Default.Payments
-    }
-}

@@ -442,12 +442,12 @@ object SampleDataInitializer {
         )
 
         // 9. Monthly Budget Categories
-        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Groceries", monthlyLimit = 350.00))
-        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Transport & Fuel", monthlyLimit = 180.00))
-        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Electricity", monthlyLimit = 60.00))
-        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Food & Dining", monthlyLimit = 120.00))
-        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Airtime & Data", monthlyLimit = 50.00))
-        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Business Expense", monthlyLimit = 800.00))
+        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Groceries", monthlyLimit = 350.00, alertThresholdPercent = 85.0, alertEnabled = true))
+        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Transport & Fuel", monthlyLimit = 180.00, alertThresholdPercent = 80.0, alertEnabled = true))
+        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Electricity", monthlyLimit = 60.00, alertThresholdPercent = 90.0, alertEnabled = true))
+        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Food & Dining", monthlyLimit = 120.00, alertThresholdPercent = 80.0, alertEnabled = true))
+        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Airtime & Data", monthlyLimit = 50.00, alertThresholdPercent = 90.0, alertEnabled = true))
+        dao.insertBudgetCategory(BudgetCategoryEntity(category = "Business Expense", monthlyLimit = 800.00, alertThresholdPercent = 100.0, alertEnabled = true))
 
         // 10. Realistic Transactions (EcoCash, Bank, Transfers)
         dao.insertTransaction(

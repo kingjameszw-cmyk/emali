@@ -21,6 +21,7 @@ import com.example.data.local.entities.UserProfileEntity
 import com.example.data.repository.FinanceRepository
 import com.example.util.DashboardFinancialSummary
 import com.example.util.FinancialMath
+import com.example.util.BudgetNotificationHelper
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -43,6 +44,7 @@ enum class DashboardCardId(val title: String) {
     QUICK_ACTIONS("Quick Actions Bar"),
     TIME_FILTER("Time Filter & Rates"),
     MONTHLY_CASHFLOW("Monthly Cashflow & Stats"),
+    SPENDING_CHARTS("Spending Trends & Category Charts"),
     SAVINGS_RATE("Savings Rate & Goals"),
     BUDGET_HEALTH("Monthly Budget Health"),
     TODO_CHECKLIST("Bills & Tasks Checklist"),
@@ -253,6 +255,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             DashboardCardId.QUICK_ACTIONS,
             DashboardCardId.TIME_FILTER,
             DashboardCardId.MONTHLY_CASHFLOW,
+            DashboardCardId.SPENDING_CHARTS,
             DashboardCardId.SAVINGS_RATE,
             DashboardCardId.BUDGET_HEALTH,
             DashboardCardId.TODO_CHECKLIST,
@@ -314,6 +317,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        BudgetNotificationHelper.createNotificationChannel(application)
         viewModelScope.launch {
             SampleDataInitializer.populateIfEmpty(db.financeDao())
         }
@@ -352,6 +356,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.addTransaction(transaction.copy(profileId = _activeProfileId.value))
             _userFeedbackMessage.value = "Recorded: ${transaction.category} ($${transaction.amount})"
+            if (transaction.type.equals("EXPENSE", ignoreCase = true)) {
+                checkBudgetThresholdAndAlert(transaction.category, transaction.amount)
+            }
         }
     }
 
@@ -615,6 +622,51 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.deleteBudgetCategory(id)
             _userFeedbackMessage.value = "Category budget removed"
+        }
+    }
+
+    fun checkBudgetThresholdAndAlert(category: String, addedAmount: Double = 0.0) {
+        val catBudget = budgetCategories.value.find { it.category.equals(category, ignoreCase = true) }
+        if (catBudget != null && catBudget.alertEnabled && catBudget.monthlyLimit > 0) {
+            val startOfMonth = FinancialMath.getStartOfMonthMillis()
+            val currentSpent = transactions.value
+                .filter { it.type == "EXPENSE" && it.category.equals(category, ignoreCase = true) && it.dateMillis >= startOfMonth }
+                .sumOf { it.amount } + addedAmount
+            val thresholdRatio = (catBudget.alertThresholdPercent / 100.0).coerceAtLeast(0.01)
+            val thresholdAmount = catBudget.monthlyLimit * thresholdRatio
+
+            if (currentSpent >= thresholdAmount) {
+                val sent = BudgetNotificationHelper.sendBudgetThresholdAlert(
+                    context = getApplication(),
+                    category = catBudget.category,
+                    spentAmount = currentSpent,
+                    limitAmount = catBudget.monthlyLimit,
+                    thresholdPercent = catBudget.alertThresholdPercent
+                )
+                if (sent) {
+                    _userFeedbackMessage.value = "Alert: ${catBudget.category} reached ${String.format(java.util.Locale.US, "%.0f%%", (currentSpent / catBudget.monthlyLimit) * 100)} of budget!"
+                }
+            }
+        }
+    }
+
+    fun triggerTestBudgetAlert(category: String = "Groceries") {
+        val catBudget = budgetCategories.value.find { it.category.equals(category, ignoreCase = true) }
+        val limit = catBudget?.monthlyLimit ?: 350.00
+        val threshold = catBudget?.alertThresholdPercent ?: 85.0
+        val testSpent = limit * (threshold / 100.0)
+
+        val sent = BudgetNotificationHelper.sendBudgetThresholdAlert(
+            context = getApplication(),
+            category = category,
+            spentAmount = testSpent,
+            limitAmount = limit,
+            thresholdPercent = threshold
+        )
+        if (sent) {
+            _userFeedbackMessage.value = "Test alert sent for $category (${String.format(java.util.Locale.US, "%.0f%%", threshold)} threshold)"
+        } else {
+            _userFeedbackMessage.value = "Alert dispatched. Note: Enable notifications permission if prompted."
         }
     }
 

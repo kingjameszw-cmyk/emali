@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.Summarize
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
@@ -94,6 +95,7 @@ import com.example.ui.components.QuickBudgetEditDialog
 import com.example.ui.components.QuickDepositDialog
 import com.example.ui.components.SegmentedTimeFilter
 import com.example.ui.components.StatCard
+import com.example.ui.components.SpendingAnalyticsCard
 import com.example.ui.theme.EcoCashBlue
 import com.example.ui.theme.FinanceExpenseRed
 import com.example.ui.theme.FinanceIncomeGreen
@@ -303,7 +305,15 @@ fun DashboardScreen(
                             MonthlyCashflowCard(
                                 summary = summary,
                                 onRecordIncome = { showQuickAddExpenseDialog = true },
-                                onRecordExpense = onQuickAddTransaction
+                                onRecordExpense = onQuickAddTransaction,
+                                onViewSummary = { onNavigate(AppScreen.MONTHLY_SUMMARY) }
+                            )
+                        }
+
+                        DashboardCardId.SPENDING_CHARTS -> {
+                            SpendingAnalyticsCard(
+                                transactions = recentTransactions,
+                                onNavigateToDetails = { onNavigate(AppScreen.MONTHLY_SUMMARY) }
                             )
                         }
 
@@ -1007,32 +1017,75 @@ fun QuickActionsCard(
 fun MonthlyCashflowCard(
     summary: DashboardFinancialSummary,
     onRecordIncome: () -> Unit,
-    onRecordExpense: () -> Unit
+    onRecordExpense: () -> Unit,
+    onViewSummary: () -> Unit = {}
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        StatCard(
-            title = "Period Income",
-            value = CurrencyFormatter.formatUsd(summary.monthlyIncome),
-            subtitle = "+ Tap to record",
-            icon = Icons.Default.ArrowDownward,
-            accentColor = FinanceIncomeGreen,
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            StatCard(
+                title = "Period Income",
+                value = CurrencyFormatter.formatUsd(summary.monthlyIncome),
+                subtitle = "+ Tap to record",
+                icon = Icons.Default.ArrowDownward,
+                accentColor = FinanceIncomeGreen,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onRecordIncome() }
+            )
+            StatCard(
+                title = "Consumption Spend",
+                value = CurrencyFormatter.formatUsd(summary.monthlyConsumptionExpense),
+                subtitle = "Fees: $${String.format("%.2f", summary.monthlyEcoCashFees)}",
+                icon = Icons.Default.ArrowUpward,
+                accentColor = FinanceExpenseRed,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onRecordExpense() }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
             modifier = Modifier
-                .weight(1f)
-                .clickable { onRecordIncome() }
-        )
-        StatCard(
-            title = "Consumption Spend",
-            value = CurrencyFormatter.formatUsd(summary.monthlyConsumptionExpense),
-            subtitle = "Fees: $${String.format("%.2f", summary.monthlyEcoCashFees)}",
-            icon = Icons.Default.ArrowUpward,
-            accentColor = FinanceExpenseRed,
-            modifier = Modifier
-                .weight(1f)
-                .clickable { onRecordExpense() }
-        )
+                .fillMaxWidth()
+                .clickable { onViewSummary() }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Summarize,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Monthly Summary: Income vs Expenses & Top Category",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
     }
 }
 

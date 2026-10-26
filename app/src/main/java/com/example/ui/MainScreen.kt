@@ -79,6 +79,11 @@ import com.example.ui.screens.SavedExpensesScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TodoListScreen
 import com.example.ui.screens.TransactionsScreen
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Summarize
+import com.example.ui.ThemeMode
+import com.example.ui.screens.MonthlySummaryScreen
 import com.example.util.CurrencyFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -108,6 +113,7 @@ fun MainScreen(viewModel: MainViewModel) {
     val selectedPeriod by viewModel.selectedTimePeriod.collectAsStateWithLifecycle()
     val dashboardCardOrder by viewModel.dashboardCardOrder.collectAsStateWithLifecycle()
     val isCustomizingDashboard by viewModel.isCustomizingDashboard.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showAddTxDialog by remember { mutableStateOf(false) }
@@ -190,6 +196,28 @@ fun MainScreen(viewModel: MainViewModel) {
                     }
                 },
                 actions = {
+                    // Dark Mode Instant Toggle
+                    IconButton(
+                        onClick = { viewModel.toggleDarkMode() },
+                        modifier = Modifier.testTag("top_bar_theme_toggle_btn")
+                    ) {
+                        Icon(
+                            if (themeMode == ThemeMode.DARK) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Toggle Dark Mode",
+                            tint = if (themeMode == ThemeMode.DARK) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    // Monthly Summary Screen Shortcut
+                    IconButton(
+                        onClick = { viewModel.navigateTo(AppScreen.MONTHLY_SUMMARY) },
+                        modifier = Modifier.testTag("top_bar_summary_btn")
+                    ) {
+                        Icon(
+                            Icons.Default.Summarize,
+                            contentDescription = "Monthly Summary",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     IconButton(
                         onClick = { showProfileSwitcher = true },
                         modifier = Modifier.testTag("top_bar_profile_switcher_btn")
@@ -354,7 +382,8 @@ fun MainScreen(viewModel: MainViewModel) {
                     budgetCategories = budgetCategories,
                     transactions = transactions,
                     onSaveCategory = { viewModel.saveBudgetCategory(it) },
-                    onDeleteCategory = { viewModel.deleteBudgetCategory(it) }
+                    onDeleteCategory = { viewModel.deleteBudgetCategory(it) },
+                    onTriggerTestAlert = { category -> viewModel.triggerTestBudgetAlert(category) }
                 )
 
                 AppScreen.TODO_LIST -> TodoListScreen(
@@ -423,7 +452,17 @@ fun MainScreen(viewModel: MainViewModel) {
                 AppScreen.REPORTS -> ReportsScreen(
                     summary = summary,
                     transactions = transactions,
-                    budgetCategories = budgetCategories
+                    budgetCategories = budgetCategories,
+                    onNavigateToMonthlySummary = { viewModel.navigateTo(AppScreen.MONTHLY_SUMMARY) }
+                )
+
+                AppScreen.MONTHLY_SUMMARY -> MonthlySummaryScreen(
+                    transactions = transactions,
+                    budgetCategories = budgetCategories,
+                    userProfile = userProfile,
+                    onNavigateBack = { viewModel.navigateTo(AppScreen.DASHBOARD) },
+                    onNavigateToBudget = { viewModel.navigateTo(AppScreen.BUDGET_PLANNER) },
+                    onNavigateToTransactions = { viewModel.navigateTo(AppScreen.TRANSACTIONS) }
                 )
 
                 AppScreen.ASSISTANT -> AssistantScreen(
@@ -441,6 +480,8 @@ fun MainScreen(viewModel: MainViewModel) {
                     userProfile = userProfile,
                     allProfiles = allProfiles,
                     activeProfileId = activeProfileId,
+                    themeMode = themeMode,
+                    onSetThemeMode = { viewModel.setThemeMode(it) },
                     onSwitchProfile = { viewModel.switchProfile(it) },
                     onCreateProfile = { name, curr, rate -> viewModel.createZeroProfile(name, curr, rate) },
                     onResetProfileToZero = { viewModel.resetActiveProfileToZero() },
